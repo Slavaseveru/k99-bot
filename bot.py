@@ -1,26 +1,21 @@
 import os
 import logging
-from anthropic import Anthropic
+import google.generativeai as genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-anthropic = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-SYSTEM_PROMPT = "Ты — персональный AI-ассистент К99. Умный, краткий, полезный. Отвечаешь на русском."
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+model = genai.GenerativeModel("gemini-1.5-flash", system_instruction="Ты — персональный AI-ассистент К99. Умный, краткий, полезный. Отвечаешь на русском.")
 
 conversations = {}
-MAX_HISTORY = 20
 
-def get_history(user_id):
-    return conversations.setdefault(user_id, [])
-
-def trim_history(user_id):
-    h = conversations.get(user_id, [])
-    if len(h) > MAX_HISTORY:
-        conversations[user_id] = h[-MAX_HISTORY:]
+def get_chat(user_id):
+    if user_id not in conversations:
+        conversations[user_id] = model.start_chat(history=[])
+    return conversations[user_id]
 
 async def cmd_start(update, context):
     await update.message.reply_text("Привет! Я К99 — твой AI-ассистент 🤖\n/clear — очистить память\n/help — помощь")
@@ -36,24 +31,13 @@ async def handle_message(update, context):
     user_id = update.effective_user.id
     user_text = update.message.text
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    history = get_history(user_id)
-    history.append({"role": "user", "content": user_text})
     try:
-        response = anthropic.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=history
-        )
-        assistant_text = response.content[0].text
+        chat = get_chat(user_id)
+        response = chat.send_message(user_text)
+        await update.message.reply_text(response.text)
     except Exception as e:
         logger.error("Error: %s", e)
         await update.message.reply_text("⚠️ Ошибка. Попробуй ещё раз.")
-        history.pop()
-        return
-    history.append({"role": "assistant", "content": assistant_text})
-    trim_history(user_id)
-    await update.message.reply_text(assistant_text)
 
 def main():
     app = ApplicationBuilder().token(os.environ["TELEGRAM_BOT_TOKEN"]).build()
