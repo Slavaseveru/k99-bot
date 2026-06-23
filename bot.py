@@ -8,7 +8,7 @@ logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=lo
 logger = logging.getLogger(__name__)
 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-1.5-flash", system_instruction="Ты — персональный AI-ассистент К99. Умный, краткий, полезный. Отвечаешь на русском.")
+model = genai.GenerativeModel("gemini-2.0-flash", system_instruction="Ты — персональный AI-ассистент К99. Умный, краткий, полезный. Отвечаешь на русском.")
 
 conversations = {}
 
